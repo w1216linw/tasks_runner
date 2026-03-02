@@ -13,7 +13,7 @@ import pandas as pd
 
 LogFn = Callable[[str], None]
 
-TARGET_DRIVERS = ['韩境烨', '安博', '李健', '朱海山', '王洋', '吴波', '陈磊', '邢旭', '刘增榕']
+TARGET_DRIVERS = ['韩境烨', '安博', '李健', '朱海山', '王洋', '吴波', '陈磊', '邢旭', '刘增榕','吴军']
 TARGET_SET = set(TARGET_DRIVERS)
 
 
@@ -28,10 +28,10 @@ def run(input_file: Path, output_dir: Path, log: LogFn) -> Path:
     log('=' * 60)
     log(f'输入文件: {input_file.name}')
 
-    wb = openpyxl.load_workbook(input_file, read_only=True)
-    ws = wb.active
+    wb = openpyxl.load_workbook(input_file)
+    ws = wb["Sheet1"]
 
-    counts: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    counts = defaultdict(lambda: defaultdict(int))
     total = 0
 
     for row in ws.iter_rows(min_row=2, values_only=True):
