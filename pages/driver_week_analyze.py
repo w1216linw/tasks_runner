@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
-from scripts.driver_week_analyze import run_comparison, run_dwa
+from scripts.driver_week_analyze import run_comparison, run_dwa, run_weekly_chart
 from utils.paths import get_feature_dir
 
 FEATURE = 'driver_week_analyze'
@@ -22,7 +23,7 @@ def _scan(subdir: str, pattern: str) -> list[Path]:
     return sorted(d.glob(pattern))
 
 
-def _make_async_log(log_area: ui.log, btn: ui.button):
+def _make_async_log(log_area: ui.log):
     """返回 (log_fn, queue, drain_coro_factory)。"""
     loop = asyncio.get_event_loop()
     queue: asyncio.Queue[str | None] = asyncio.Queue()
@@ -58,7 +59,7 @@ def create() -> None:
             ).classes('text-caption text-grey-7')
 
             dwd_files = _scan('input', 'dwd_*.xlsx')
-            txn_files = _scan('input', 'transaction_*.xlsx')
+            txn_files = _scan('input', 'Transaction*_*.xlsx')
 
             with ui.row().classes('gap-md w-full q-mt-sm'):
                 with ui.column().classes('flex-1'):
@@ -73,7 +74,7 @@ def create() -> None:
                         ).classes('w-full')
 
                 with ui.column().classes('flex-1'):
-                    ui.label('加油交易 (transaction_*.xlsx)').classes('text-caption text-grey-7')
+                    ui.label('加油交易 (Transaction*_*.xlsx)').classes('text-caption text-grey-7')
                     if not txn_files:
                         ui.label('未找到').classes('text-caption text-negative')
                         txn_select = None
@@ -93,7 +94,7 @@ def create() -> None:
 
                 dwa_log.clear()
                 dwa_btn.disable()
-                log, queue, drain = _make_async_log(dwa_log, dwa_btn)
+                log, queue, drain = _make_async_log(dwa_log)
                 drain_task = asyncio.create_task(drain())
                 output_dir = get_feature_dir(FEATURE) / 'output'
 
@@ -158,7 +159,7 @@ def create() -> None:
 
                 cmp_log.clear()
                 cmp_btn.disable()
-                log, queue, drain = _make_async_log(cmp_log, cmp_btn)
+                log, queue, drain = _make_async_log(cmp_log)
                 drain_task = asyncio.create_task(drain())
                 output_dir = get_feature_dir(FEATURE) / 'output'
 
@@ -182,6 +183,99 @@ def create() -> None:
                     cmp_btn.enable()
 
             cmp_btn.on('click', on_comparison)
+
+        # ── 第三步: 周报图表 ──────────────────────────────────
+        with ui.card().classes('w-full q-mt-md'):
+            ui.label('第三步：生成周报图表').classes('text-subtitle1 text-bold')
+            ui.label(
+                '选择上周和本周的 dwa_*.xlsx（第一步的输出），生成四图对比周报 PNG。'
+            ).classes('text-caption text-grey-7')
+
+            with ui.row().classes('gap-md w-full q-mt-sm'):
+                with ui.column().classes('flex-1'):
+                    ui.label('上周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                    if len(dwa_output_files) < 2:
+                        ui.label('请先完成两周的 DWA 分析').classes('text-caption text-negative')
+                        chart_prev_select = None
+                        chart_curr_select = None
+                    else:
+                        chart_prev_select = ui.select(
+                            {str(f): f.name for f in dwa_output_files},
+                            value=str(dwa_output_files[0]),
+                        ).classes('w-full')
+
+                if len(dwa_output_files) >= 2:
+                    with ui.column().classes('flex-1'):
+                        ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                        chart_curr_select = ui.select(
+                            {str(f): f.name for f in dwa_output_files},
+                            value=str(dwa_output_files[-1]),
+                        ).classes('w-full')
+
+            chart_img_ref: list[Path | None] = [None]
+
+            with ui.row().classes('q-mt-sm gap-sm items-center'):
+                chart_btn = ui.button('生成周报图表', icon='bar_chart')
+                copy_chart_btn = ui.button('复制图表', icon='content_copy').props('flat')
+                copy_chart_btn.disable()
+
+            chart_log = ui.log(max_lines=50).classes('w-full h-32 q-mt-sm font-mono text-xs')
+            chart_img = ui.column().classes('w-full q-mt-md')
+
+            async def on_chart():
+                if chart_prev_select is None or chart_curr_select is None:
+                    ui.notify('请先完成两周的 DWA 分析', type='negative')
+                    return
+
+                chart_log.clear()
+                chart_img.clear()
+                chart_btn.disable()
+                copy_chart_btn.disable()
+                log, queue, drain = _make_async_log(chart_log)
+                drain_task = asyncio.create_task(drain())
+                output_dir = get_feature_dir(FEATURE) / 'output'
+
+                try:
+                    img_path = await run.io_bound(
+                        run_weekly_chart,
+                        Path(chart_prev_select.value),
+                        Path(chart_curr_select.value),
+                        output_dir,
+                        log,
+                    )
+                    queue.put_nowait(None)
+                    await drain_task
+                    chart_img_ref[0] = img_path
+                    with chart_img:
+                        ui.label('周报预览').classes('text-subtitle1 text-bold')
+                        ui.image(str(img_path)).classes('w-full')
+                    copy_chart_btn.enable()
+                    ui.notify('周报图表已生成！', type='positive')
+                except Exception as e:
+                    queue.put_nowait(f'ERROR: {e}')
+                    queue.put_nowait(None)
+                    await drain_task
+                    ui.notify(f'出错: {e}', type='negative')
+                finally:
+                    chart_btn.enable()
+
+            async def copy_chart():
+                path = chart_img_ref[0]
+                if path is None:
+                    ui.notify('请先生成图表', type='warning')
+                    return
+                data = base64.b64encode(path.read_bytes()).decode()
+                await ui.run_javascript(f'''
+                    const bytes = atob("{data}");
+                    const arr = new Uint8Array(bytes.length);
+                    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+                    const blob = new Blob([arr], {{type: 'image/png'}});
+                    await navigator.clipboard.write([new ClipboardItem({{'image/png': blob}})]);
+                ''', timeout=15.0)
+                ui.notify('图表已复制到剪贴板！', type='positive')
+
+            chart_btn.on('click', on_chart)
+            copy_chart_btn.on('click', copy_chart)
 
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'

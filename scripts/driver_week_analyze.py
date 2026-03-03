@@ -10,6 +10,9 @@ import re
 from pathlib import Path
 from typing import Callable
 
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import pandas as pd
 
 LogFn = Callable[[str], None]
@@ -263,4 +266,104 @@ def run_comparison(prev_file: Path, curr_file: Path, output_dir: Path, log: LogF
                     ws.cell(row=ri, column=ci).fill = curr_fill
 
     log(f'\n✓ 已保存: {output_path.name}')
+    return output_path
+
+
+def run_weekly_chart(prev_file: Path, curr_file: Path, output_dir: Path, log: LogFn) -> Path:
+    """
+    读取两周的 DWA Excel，生成四图对比周报 PNG。
+    返回输出图片路径。
+    """
+    log('=' * 60)
+    log('生成周报图表')
+    log('=' * 60)
+    log(f'上周: {prev_file.name}')
+    log(f'本周: {curr_file.name}')
+
+    df_prev = pd.read_excel(prev_file)
+    df_curr = pd.read_excel(curr_file)
+
+    common = sorted(set(df_prev['司机']) & set(df_curr['司机']))
+    log(f'共同司机: {len(common)} 位')
+
+    df_p = df_prev[df_prev['司机'].isin(common)].sort_values('司机').reset_index(drop=True)
+    df_c = df_curr[df_curr['司机'].isin(common)].sort_values('司机').reset_index(drop=True)
+
+    drivers = df_c['司机'].values
+    x = range(len(drivers))
+    w = 0.35
+
+    plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS', 'DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+
+    def _week(f: Path) -> str:
+        m = re.search(r'dwa_\d{2}(\d{2})(\d{2})', f.stem)
+        return f'{m.group(1)}/{m.group(2)}' if m else f.stem
+
+    def _labels(ax, bars, fmt, color='#333333'):
+        for b in bars:
+            h = b.get_height()
+            ax.text(b.get_x() + b.get_width() / 2, h,
+                    fmt.format(h), ha='center', va='bottom', fontsize=8, color=color, weight='bold')
+
+    curr_wk, prev_wk = _week(curr_file), _week(prev_file)
+
+    fig = plt.figure(figsize=(18, 12))
+    gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
+
+    # ── 左上: 总任务数 & 总里程（当前周，双轴）
+    ax1 = fig.add_subplot(gs[0, 0])
+    ax1r = ax1.twinx()
+    b1 = ax1.bar([i - w/2 for i in x], df_c['总任务(个)'], w, color='#3498db', alpha=0.8, label='总任务数（个）')
+    b2 = ax1r.bar([i + w/2 for i in x], df_c['总里程(英里)'], w, color='#2ecc71', alpha=0.8, label='总里程（英里）')
+    ax1.set_xticks(x); ax1.set_xticklabels(drivers, fontsize=10)
+    ax1.set_ylabel('总任务数（个）', fontsize=11, color='#3498db'); ax1.tick_params(axis='y', labelcolor='#3498db')
+    ax1r.set_ylabel('总里程（英里）', fontsize=11, color='#2ecc71'); ax1r.tick_params(axis='y', labelcolor='#2ecc71')
+    _labels(ax1, b1, '{:.0f}', '#3498db'); _labels(ax1r, b2, '{:.0f}', '#2ecc71')
+    ax1.set_title(f'总任务数与总里程）', fontsize=13, weight='bold')
+    h1, l1 = ax1.get_legend_handles_labels(); h2, l2 = ax1r.get_legend_handles_labels()
+    ax1.legend(h1 + h2, l1 + l2, loc='upper left', fontsize=9)
+
+    # ── 右上: 任务效率 & 里程效率（当前周，双轴）
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2r = ax2.twinx()
+    b3 = ax2.bar([i - w/2 for i in x], df_c['任务效率(任务/小时)'], w, color='#9b59b6', alpha=0.8, label='任务效率（任务/小时）')
+    b4 = ax2r.bar([i + w/2 for i in x], df_c['里程效率(英里/小时)'], w, color='#e74c3c', alpha=0.8, label='里程效率（英里/小时）')
+    ax2.set_xticks(x); ax2.set_xticklabels(drivers, fontsize=10)
+    ax2.set_ylabel('任务效率（任务/小时）', fontsize=11, color='#9b59b6'); ax2.tick_params(axis='y', labelcolor='#9b59b6')
+    ax2r.set_ylabel('里程效率（英里/小时）', fontsize=11, color='#e74c3c'); ax2r.tick_params(axis='y', labelcolor='#e74c3c')
+    _labels(ax2, b3, '{:.2f}', '#9b59b6'); _labels(ax2r, b4, '{:.2f}', '#e74c3c')
+    ax2.set_title(f'任务效率与里程效率', fontsize=13, weight='bold')
+    h1, l1 = ax2.get_legend_handles_labels(); h2, l2 = ax2r.get_legend_handles_labels()
+    ax2.legend(h1 + h2, l1 + l2, loc='upper left', fontsize=9)
+
+    # ── 左下: 平均揽收间距对比
+    ax3 = fig.add_subplot(gs[1, 0])
+    bp = ax3.bar([i - w/2 for i in x], df_p['平均揽收间距(英里/任务)'], w, color='#95a5a6', alpha=0.8, label=f'上周({prev_wk})')
+    bc = ax3.bar([i + w/2 for i in x], df_c['平均揽收间距(英里/任务)'], w, color='#3498db', alpha=0.8, label=f'本周({curr_wk})')
+    ax3.set_xticks(x); ax3.set_xticklabels(drivers, fontsize=10)
+    ax3.set_ylabel('平均揽收间距 (英里/任务)', fontsize=11, weight='bold')
+    ax3.set_title('平均揽收间距对比', fontsize=13, weight='bold')
+    ax3.legend(fontsize=9); ax3.grid(axis='y', alpha=0.3, linestyle='--')
+    _labels(ax3, bp, '{:.1f}'); _labels(ax3, bc, '{:.1f}')
+
+    # ── 右下: 工作负荷指数对比
+    ax4 = fig.add_subplot(gs[1, 1])
+    bp4 = ax4.bar([i - w/2 for i in x], df_p['工作负荷指数(任务×里程/小时)'], w, color='#95a5a6', alpha=0.8, label=f'上周({prev_wk})')
+    bc4 = ax4.bar([i + w/2 for i in x], df_c['工作负荷指数(任务×里程/小时)'], w, color='#3498db', alpha=0.8, label=f'本周({curr_wk})')
+    ax4.set_xticks(x); ax4.set_xticklabels(drivers, fontsize=10)
+    ax4.set_ylabel('工作负荷指数 (任务×里程/小时)', fontsize=11, weight='bold')
+    ax4.set_title('工作负荷指数对比', fontsize=13, weight='bold')
+    ax4.legend(fontsize=9); ax4.grid(axis='y', alpha=0.3, linestyle='--')
+    _labels(ax4, bp4, '{:.0f}'); _labels(ax4, bc4, '{:.0f}')
+
+    fig.suptitle(f'司机周报 — {curr_wk} 数据概览', fontsize=16, weight='bold', y=0.998)
+    plt.tight_layout()
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    date_tag = re.sub(r'^dwa_', '', curr_file.stem)
+    output_path = output_dir / f'weekly_report_{date_tag}.png'
+    plt.savefig(output_path, dpi=150, bbox_inches='tight', facecolor='white')
+    plt.close(fig)
+    log(f'✓ 已保存: {output_path.name}')
     return output_path
