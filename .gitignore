@@ -8,3 +8,12 @@ wheels/
 
 # Virtual environments
 .venv
+
+# macOS metadata
+.DS_Store
+
+# Claude agent files
+.claude/
+
+# Runtime data (input/output files per feature)
+data/*/

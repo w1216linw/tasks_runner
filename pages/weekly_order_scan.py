@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -22,7 +23,7 @@ def create() -> None:
     with ui.column().classes('w-full q-pa-lg'):
         with ui.row().classes('items-center gap-sm'):
             back_button()
-            ui.label('每日订单量扫描').classes('text-h4 text-bold')
+            ui.label('周纬度订单扫描').classes('text-h4 text-bold')
         ui.separator()
 
         orders_dir = get_feature_dir(FEATURE) / 'orders'
@@ -37,7 +38,12 @@ def create() -> None:
                 for f in xlsx_files:
                     ui.label(f'• {f.name}').classes('text-caption q-ml-sm')
 
-        run_btn = ui.button('运行', icon='play_arrow').classes('q-mt-md')
+        messages: list[str] = []
+
+        with ui.row().classes('q-mt-md gap-sm items-center'):
+            run_btn = ui.button('运行', icon='play_arrow')
+            copy_btn = ui.button('复制输出', icon='content_copy').props('flat').disable()
+
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
 
         async def on_run():
@@ -46,7 +52,9 @@ def create() -> None:
                 return
 
             log_area.clear()
+            messages.clear()
             run_btn.disable()
+            copy_btn.disable()
 
             loop = asyncio.get_event_loop()
             queue: asyncio.Queue[str | None] = asyncio.Queue()
@@ -60,6 +68,7 @@ def create() -> None:
                     if msg is None:
                         break
                     log_area.push(msg)
+                    messages.append(msg)
 
             drain_task = asyncio.create_task(drain())
             output_dir = get_feature_dir(FEATURE) / 'output'
@@ -76,8 +85,15 @@ def create() -> None:
                 ui.notify(f'出错: {e}', type='negative')
             finally:
                 run_btn.enable()
+                copy_btn.enable()
+
+        async def copy_output():
+            text = '\n'.join(messages)
+            await ui.run_javascript(f'navigator.clipboard.writeText({json.dumps(text)})')
+            ui.notify('已复制到剪贴板', type='positive')
 
         run_btn.on('click', on_run)
+        copy_btn.on('click', copy_output)
 
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'

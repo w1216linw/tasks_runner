@@ -1,6 +1,18 @@
 from nicegui import ui
 
 from components.layout import sidebar
+from utils.paths import get_app_dir
+
+
+def _clear_all_inputs() -> str:
+    """删除 data/*/input/ 下的所有文件，返回摘要文字。"""
+    removed = []
+    for input_dir in sorted(get_app_dir().glob('*/input')):
+        for f in input_dir.iterdir():
+            if f.is_file():
+                f.unlink()
+                removed.append(f'{input_dir.parent.name}/{f.name}')
+    return removed
 
 
 def create() -> None:
@@ -24,7 +36,7 @@ def create() -> None:
 
             with ui.card().classes('cursor-pointer').on('click', lambda: ui.navigate.to('/weekly-order-scan')):
                 ui.icon('bar_chart', size='2rem').classes('text-primary')
-                ui.label('每日订单量扫描').classes('text-subtitle1 text-bold')
+                ui.label('周纬度订单扫描').classes('text-subtitle1 text-bold')
                 ui.label('XLSX → 按日统计单量').classes('text-caption text-grey-7')
 
             with ui.card().classes('cursor-pointer').on('click', lambda: ui.navigate.to('/driver-week-analyze')):
@@ -36,3 +48,23 @@ def create() -> None:
                 ui.icon('person_pin', size='2rem').classes('text-primary')
                 ui.label('司机任务点数').classes('text-subtitle1 text-bold')
                 ui.label('按司机 + 日期统计任务点数').classes('text-caption text-grey-7')
+
+        ui.separator().classes('q-mt-xl')
+
+        def on_clear_click():
+            with ui.dialog() as dlg, ui.card():
+                ui.label('确认清理').classes('text-subtitle1 text-bold')
+                ui.label('将删除所有功能 input/ 目录下的文件，此操作不可撤销。').classes('text-body2')
+                with ui.row().classes('q-mt-md gap-sm justify-end w-full'):
+                    ui.button('取消', on_click=dlg.close).props('flat')
+                    def confirm():
+                        dlg.close()
+                        removed = _clear_all_inputs()
+                        if removed:
+                            ui.notify(f'已删除 {len(removed)} 个文件', type='positive')
+                        else:
+                            ui.notify('input 目录中没有文件', type='info')
+                    ui.button('确认删除', on_click=confirm).props('color=negative')
+            dlg.open()
+
+        ui.button('清理所有输入文件', icon='delete_sweep', on_click=on_clear_click).props('flat color=negative').classes('q-mt-md')

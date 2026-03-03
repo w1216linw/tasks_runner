@@ -28,15 +28,42 @@ def create() -> None:
         orders_dir = get_feature_dir(FEATURE) / 'orders'
         orders_dir.mkdir(parents=True, exist_ok=True)
 
-        # 文件列表预览
+        csv_files = sorted(orders_dir.glob('*.csv'))
+
+        # 文件列表预览（默认折叠）
         with ui.card().classes('w-full q-mt-md'):
-            ui.label('orders/ 目录中的文件').classes('text-subtitle1 text-bold')
-            csv_files = sorted(orders_dir.glob('*.csv'))
-            if not csv_files:
-                ui.label('未找到 CSV 文件，请放入 data/generate_weekly_trends/orders/').classes('text-caption text-negative')
-            else:
-                for f in csv_files:
-                    ui.label(f'• {f.name}').classes('text-caption q-ml-sm')
+            with ui.row().classes('items-center justify-between w-full'):
+                ui.label('orders/ 目录中的文件').classes('text-subtitle1 text-bold')
+                toggle_btn = ui.button(icon='expand_more').props('flat round dense')
+
+            file_content = ui.column().classes('q-mt-xs')
+            file_content.set_visibility(False)
+            with file_content:
+                if not csv_files:
+                    ui.label('未找到 CSV 文件，请放入 data/generate_weekly_trends/orders/').classes('text-caption text-negative')
+                else:
+                    for f in csv_files:
+                        ui.label(f'• {f.name}').classes('text-caption q-ml-sm')
+
+        def toggle_files():
+            visible = not file_content.visible
+            file_content.set_visibility(visible)
+            toggle_btn.props(f'icon={"expand_less" if visible else "expand_more"}')
+
+        toggle_btn.on('click', toggle_files)
+
+        # 历史数据状态
+        history_file = get_feature_dir(FEATURE) / '周一历史单量.csv'
+
+        def _history_label() -> str:
+            if history_file.exists():
+                import pandas as pd
+                n = len(pd.read_csv(history_file))
+                return f'历史文件: {history_file.name}（{n} 天）'
+            return f'历史文件: 尚未创建'
+
+        with ui.card().classes('w-full q-mt-md'):
+            hist_label = ui.label(_history_label()).classes('text-caption text-grey-7')
 
         run_btn = ui.button('运行', icon='play_arrow').classes('q-mt-md')
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
@@ -75,7 +102,9 @@ def create() -> None:
                     orders_dir,
                     output_dir,
                     log,
+                    history_file,
                 )
+                hist_label.set_text(_history_label())
                 queue.put_nowait(None)
                 await drain_task
 
