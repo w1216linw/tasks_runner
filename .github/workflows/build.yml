@@ -36,8 +36,34 @@ jobs:
         if: runner.os == 'macOS'
         run: nicegui-pack --onedir --name TaskRunner --add-data "scripts:scripts" main.py
 
+      - name: Zip output
+        shell: bash
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a ../TaskRunner-windows.zip TaskRunner/
+          else
+            zip -r ../TaskRunner-macos.zip TaskRunner/
+          fi
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: dist/TaskRunner/
+          path: ${{ matrix.artifact }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            TaskRunner-windows/TaskRunner-windows.zip
+            TaskRunner-macos/TaskRunner-macos.zip
