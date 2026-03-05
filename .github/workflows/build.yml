@@ -36,6 +36,17 @@ jobs:
         if: runner.os == 'macOS'
         run: nicegui-pack --onedir --name TaskRunner --add-data "scripts:scripts" main.py
 
+      - name: Add macOS launch script
+        if: runner.os == 'macOS'
+        run: |
+          cat > dist/TaskRunner/启动（首次运行前执行）.command << 'EOF'
+          #!/bin/bash
+          DIR="$(cd "$(dirname "$0")" && pwd)"
+          xattr -cr "$DIR"
+          open "$DIR/TaskRunner"
+          EOF
+          chmod +x "dist/TaskRunner/启动（首次运行前执行）.command"
+
       - name: Zip output
         shell: bash
         run: |
