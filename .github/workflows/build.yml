@@ -1,0 +1,43 @@
+name: Build
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact: TaskRunner-windows
+          - os: macos-latest
+            artifact: TaskRunner-macos
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: nicegui-pack --onedir --name TaskRunner --add-data "scripts;scripts" main.py
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: nicegui-pack --onedir --name TaskRunner --add-data "scripts:scripts" main.py
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/TaskRunner/
