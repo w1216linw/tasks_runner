@@ -4,15 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import base64
-import subprocess
-import sys
 from pathlib import Path
 
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
 from scripts.driver_week_analyze import run_comparison, run_dwa, run_weekly_chart
-from utils.paths import get_feature_dir
+from utils.paths import get_feature_dir, open_path
 
 FEATURE = 'driver_week_analyze'
 
@@ -280,9 +278,6 @@ def create() -> None:
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'
             out.mkdir(exist_ok=True)
-            if sys.platform == 'darwin':
-                subprocess.Popen(['open', str(out)])
-            elif sys.platform == 'win32':
-                subprocess.Popen(['explorer', str(out)])
+            open_path(out)
 
         ui.button('打开输出目录', icon='folder_open', on_click=open_output).classes('q-mt-md').props('flat')

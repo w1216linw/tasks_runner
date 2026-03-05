@@ -8,6 +8,7 @@ NAV_ITEMS = [
     ('每日订单量扫描', '/weekly-order-scan'),
     ('司机周数据分析', '/driver-week-analyze'),
     ('司机任务点数', '/driver-missions'),
+    ('日报制作器', '/daily-report'),
 ]
 
 

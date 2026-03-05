@@ -1,4 +1,5 @@
 from pathlib import Path
+import subprocess
 import sys
 
 
@@ -14,3 +15,19 @@ def get_feature_dir(feature: str) -> Path:
     base = get_app_dir() / feature
     base.mkdir(parents=True, exist_ok=True)
     return base
+
+
+def get_base_dir() -> Path:
+    """返回代码根目录。打包后为 _MEIPASS（解压临时目录），开发时为项目根目录。"""
+    if getattr(sys, 'frozen', False):
+        return Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    return Path(__file__).resolve().parent.parent
+
+
+def open_path(path: Path) -> None:
+    """在系统文件管理器中打开文件或文件夹（跨平台）。"""
+    if sys.platform == 'win32':
+        import os
+        os.startfile(str(path))
+    elif sys.platform == 'darwin':
+        subprocess.Popen(['open', str(path)])

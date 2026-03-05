@@ -17,3 +17,9 @@ wheels/
 
 # Runtime data (input/output files per feature)
 data/*/
+
+# Packaged app runtime data (next to exe after build)
+app/
+
+# Legacy development workspace (migrated to scripts/)
+func/

@@ -49,6 +49,11 @@ def create() -> None:
                 ui.label('司机任务点数').classes('text-subtitle1 text-bold')
                 ui.label('按司机 + 日期统计任务点数').classes('text-caption text-grey-7')
 
+            with ui.card().classes('cursor-pointer').on('click', lambda: ui.navigate.to('/daily-report')):
+                ui.icon('summarize', size='2rem').classes('text-primary')
+                ui.label('日报制作器').classes('text-subtitle1 text-bold')
+                ui.label('一键生成本地揽收日报').classes('text-caption text-grey-7')
+
         ui.separator().classes('q-mt-xl')
 
         def on_clear_click():

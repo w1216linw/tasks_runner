@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import subprocess
-import sys
 from pathlib import Path
 
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
 from scripts.generate_weekly_trends import run as run_trends
-from utils.paths import get_feature_dir
+from utils.paths import get_feature_dir, open_path
 
 FEATURE = 'generate_weekly_trends'
 
@@ -127,9 +125,6 @@ def create() -> None:
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'
             out.mkdir(exist_ok=True)
-            if sys.platform == 'darwin':
-                subprocess.Popen(['open', str(out)])
-            elif sys.platform == 'win32':
-                subprocess.Popen(['explorer', str(out)])
+            open_path(out)
 
         ui.button('打开输出目录', icon='folder_open', on_click=open_output).classes('q-mt-xs').props('flat')

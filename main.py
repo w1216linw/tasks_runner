@@ -6,6 +6,7 @@ from pages.generate_weekly_trends import create as generate_weekly_trends_page
 from pages.weekly_order_scan import create as weekly_order_scan_page
 from pages.driver_week_analyze import create as driver_week_analyze_page
 from pages.driver_missions import create as driver_missions_page
+from pages.daily_report import create as daily_report_page
 
 
 @ui.page('/')
@@ -36,6 +37,11 @@ def driver_week_analyze():
 @ui.page('/driver-missions')
 def driver_missions():
     driver_missions_page()
+
+
+@ui.page('/daily-report')
+def daily_report():
+    daily_report_page()
 
 
 ui.run(title='TaskRunner', native=True, reload=False)
