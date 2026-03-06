@@ -3,6 +3,10 @@ import sys
 import threading
 from pathlib import Path
 
+# Windows 上使用 Edge WebView2 后端，避免依赖 .NET，启动更快
+if sys.platform == 'win32':
+    os.environ['PYWEBVIEW_GUI'] = 'edgechromium'
+
 # 打包后将 matplotlib 字体缓存持久化到 app/ 目录，避免每次冷启动重建
 if getattr(sys, 'frozen', False):
     _mpl_cache = Path(sys.executable).parent / 'app' / 'matplotlib'
