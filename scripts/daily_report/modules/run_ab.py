@@ -72,7 +72,6 @@ def _merge_orders(pre_dir: Path, log: Callable) -> pd.DataFrame:
 # ── b: 更新揽收数据表 ─────────────────────────────────────────────────────────
 
 def _filter_orders_by_date(df: pd.DataFrame, target: datetime) -> pd.DataFrame:
-    df['下单时间'] = pd.to_datetime(df['下单时间'])
     start = (target - timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
     end = target.replace(hour=8, minute=0, second=0, microsecond=0)
     return df[(df['下单时间'] >= start) & (df['下单时间'] < end)]
@@ -91,7 +90,6 @@ def _count_stats(df: pd.DataFrame) -> dict:
 
 
 def _get_row_by_date(df: pd.DataFrame, target: datetime) -> int:
-    df['日期'] = pd.to_datetime(df['日期'])
     t = target.replace(hour=0, minute=0, second=0, microsecond=0)
     matches = df[df['日期'] == t]
     return matches.index[0] if not matches.empty else -1
@@ -153,9 +151,11 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
 
     # b: 去重
     orders_df = merged_df.drop_duplicates(subset=['系统单号'], keep='first')
+    orders_df['下单时间'] = pd.to_datetime(orders_df['下单时间'])
 
     # 更新 gofo_pickup_data.xlsx
     data_df = pd.read_excel(data_file, sheet_name=sheet_name)
+    data_df['日期'] = pd.to_datetime(data_df['日期'])
     wb = load_workbook(data_file)
     ws = wb[sheet_name]
     col_map = {cell.value: cell.column for cell in ws[1]}
@@ -191,7 +191,7 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
                 continue
 
         excel_row = row_idx + 2
-        filtered = _filter_orders_by_date(orders_df.copy(), target)
+        filtered = _filter_orders_by_date(orders_df, target)
         stats = _count_stats(filtered)
 
         if stats['下单量'] == 0:

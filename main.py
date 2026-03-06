@@ -1,3 +1,25 @@
+import os
+import sys
+import threading
+from pathlib import Path
+
+# 打包后将 matplotlib 字体缓存持久化到 app/ 目录，避免每次冷启动重建
+if getattr(sys, 'frozen', False):
+    _mpl_cache = Path(sys.executable).parent / 'app' / 'matplotlib'
+    _mpl_cache.mkdir(parents=True, exist_ok=True)
+    os.environ['MPLCONFIGDIR'] = str(_mpl_cache)
+
+# 后台预热 matplotlib 字体缓存，趁用户浏览主页时完成
+def _prewarm_matplotlib() -> None:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.font_manager  # noqa: F401
+
+threading.Thread(target=_prewarm_matplotlib, daemon=True).start()
+
+from utils.setup import init_app_structure
+init_app_structure()
+
 from nicegui import ui
 
 from pages.home import create as home_page

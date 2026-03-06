@@ -10,9 +10,6 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
-import matplotlib
-matplotlib.use('Agg')  # 非交互后端，适合在线程中运行
-import matplotlib.pyplot as plt
 
 LogFn = Callable[[str], None]
 
@@ -62,6 +59,9 @@ def _extract_daily_orders(orders_dir: Path, log: LogFn) -> pd.DataFrame:
 
 
 def _plot_trend(df: pd.DataFrame, output_path: Path, log: LogFn) -> None:
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
     plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS', 'DejaVu Sans']
     plt.rcParams['axes.unicode_minus'] = False
 

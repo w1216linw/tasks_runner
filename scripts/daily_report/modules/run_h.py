@@ -41,8 +41,9 @@ def _get_order_time_range(target: datetime):
     return end - timedelta(days=1), end
 
 
-def _find_row_by_date(ws, target: datetime):
-    t = target.replace(hour=0, minute=0, second=0, microsecond=0)
+def _build_date_row_map(ws) -> dict:
+    """一次性扫描工作表，建立 date → row 映射，避免 O(n) 重复扫描。"""
+    result = {}
     for row in range(2, ws.max_row + 1):
         val = ws.cell(row=row, column=1).value
         if val is None:
@@ -50,8 +51,7 @@ def _find_row_by_date(ws, target: datetime):
         if isinstance(val, datetime):
             cell_date = val.replace(hour=0, minute=0, second=0, microsecond=0)
         elif isinstance(val, (int, float)):
-            from datetime import timedelta as td
-            cell_date = datetime(1899, 12, 30) + td(days=int(val))
+            cell_date = datetime(1899, 12, 30) + timedelta(days=int(val))
         elif isinstance(val, str):
             try:
                 cell_date = datetime.strptime(val, '%Y-%m-%d')
@@ -59,9 +59,8 @@ def _find_row_by_date(ws, target: datetime):
                 continue
         else:
             continue
-        if cell_date == t:
-            return row
-    return None
+        result[cell_date] = row
+    return result
 
 
 def _calculate_c_column(ws, last_row: int) -> int:
@@ -103,11 +102,13 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
 
     wb = load_workbook(xlsx_path)
     ws = wb.active
+    date_row_map = _build_date_row_map(ws)
     updates = []
 
     for days_ago in range(1, 15):
         target = today - timedelta(days=days_ago)
-        row = _find_row_by_date(ws, target)
+        t = target.replace(hour=0, minute=0, second=0, microsecond=0)
+        row = date_row_map.get(t)
 
         if row is None:
             if days_ago == 1:
@@ -115,6 +116,7 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
                 prev_row = row - 1
                 ws.cell(row=row, column=1, value=target.strftime('%Y-%m-%d'))
                 _copy_style_from_above(ws, row, 1)
+                date_row_map[t] = row  # 同步更新 map
                 log(f'新增行 {row}: {target.strftime("%Y-%m-%d")}')
                 prev_c = ws.cell(row=prev_row, column=3)
                 if prev_c.value and isinstance(prev_c.value, str) and prev_c.value.startswith('='):
@@ -149,6 +151,10 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
                 col_name = chr(ord('A') + col_config['signed'])
                 updates.append(f'{target.strftime("%m/%d")} {col_name}(签入): {signed_count}')
 
+    # 计算操作量（在保存前用已有 ws，避免重复开文件）
+    sp_op_count = _calculate_c_column(ws, ws.max_row)
+    log(f'自打面单操作量: {sp_op_count}')
+
     if updates:
         wb.save(xlsx_path)
         log(f'已更新 {len(updates)} 个单元格')
@@ -156,11 +162,5 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
             log(f'  {u}')
     else:
         log('所有目标单元格已有数据，无需更新')
-
-    # 重新加载计算操作量
-    wb2 = load_workbook(xlsx_path)
-    ws2 = wb2.active
-    sp_op_count = _calculate_c_column(ws2, ws2.max_row)
-    log(f'自打面单操作量: {sp_op_count}')
 
     return {'sp_operation_count': sp_op_count}

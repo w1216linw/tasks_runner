@@ -1,7 +1,7 @@
 from nicegui import ui
 
 from components.layout import sidebar
-from utils.paths import get_app_dir
+from utils.paths import get_app_dir, open_path
 
 
 def _clear_all_inputs() -> str:
@@ -55,6 +55,13 @@ def create() -> None:
                 ui.label('一键生成本地揽收日报').classes('text-caption text-grey-7')
 
         ui.separator().classes('q-mt-xl')
+
+        # 数据目录提示
+        app_dir = get_app_dir()
+        with ui.row().classes('items-center gap-sm q-mt-md'):
+            ui.icon('folder_open', size='sm').classes('text-grey-6')
+            ui.label(f'数据目录：{app_dir}').classes('text-caption text-grey-6 font-mono')
+            ui.button('打开', icon='open_in_new', on_click=lambda: open_path(app_dir)).props('flat dense size=sm')
 
         def on_clear_click():
             with ui.dialog() as dlg, ui.card():

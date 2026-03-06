@@ -10,9 +10,6 @@ import re
 from pathlib import Path
 from typing import Callable
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 import pandas as pd
 
 LogFn = Callable[[str], None]
@@ -274,6 +271,9 @@ def run_weekly_chart(prev_file: Path, curr_file: Path, output_dir: Path, log: Lo
     读取两周的 DWA Excel，生成四图对比周报 PNG。
     返回输出图片路径。
     """
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
     log('=' * 60)
     log('生成周报图表')
     log('=' * 60)
