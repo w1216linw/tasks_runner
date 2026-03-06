@@ -30,11 +30,11 @@ jobs:
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
-        run: nicegui-pack --onedir --name TaskRunner --add-data "scripts;scripts" --add-data "utils;utils" --collect-all pywebview --collect-all matplotlib --collect-all pgeocode main.py
+        run: pyinstaller --onedir --name TaskRunner --add-data "scripts;scripts" --add-data "utils;utils" --collect-all nicegui --collect-all pywebview --collect-all matplotlib --collect-all pgeocode --noconfirm main.py
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
-        run: nicegui-pack --onedir --name TaskRunner --add-data "scripts:scripts" --add-data "utils:utils" --collect-all matplotlib --collect-all pgeocode main.py
+        run: pyinstaller --onedir --name TaskRunner --add-data "scripts:scripts" --add-data "utils:utils" --collect-all nicegui --collect-all matplotlib --collect-all pgeocode --noconfirm main.py
 
       - name: Add macOS launch script
         if: runner.os == 'macOS'
