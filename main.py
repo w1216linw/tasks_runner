@@ -3,11 +3,18 @@ import sys
 import threading
 from pathlib import Path
 
-# Windows 上使用 Edge WebView2 后端，避免依赖 .NET，启动更快
-# 必须写入 start_args，环境变量在 pywebview 子进程中不生效
-if sys.platform == 'win32':
-    from nicegui import app as _nicegui_app
-    _nicegui_app.native.start_args['gui'] = 'edgechromium'
+def _native_available() -> bool:
+    """检测 .NET 运行时是否可用（pywebview 在 Windows 上所有后端都依赖它）。"""
+    if sys.platform != 'win32':
+        return True
+    try:
+        import pythonnet
+        pythonnet.load()
+        return True
+    except Exception:
+        return False
+
+_USE_NATIVE = _native_available()
 
 # 打包后将 matplotlib 字体缓存持久化到 app/ 目录，避免每次冷启动重建
 if getattr(sys, 'frozen', False):
@@ -72,4 +79,4 @@ def daily_report():
     daily_report_page()
 
 
-ui.run(title='TaskRunner', native=True, reload=False)
+ui.run(title='TaskRunner', native=_USE_NATIVE, reload=False)
