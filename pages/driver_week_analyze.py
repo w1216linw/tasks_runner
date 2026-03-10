@@ -29,6 +29,13 @@ def _scan_prefix(subdir: str, prefix: str) -> list[Path]:
     return sorted(f for f in d.glob('*.xlsx') if f.name.lower().startswith(p))
 
 
+def _label(f: Path) -> str:
+    """文件名 + 修改日期，如 'DWA_0304.xlsx  03/04 14:23'。"""
+    from datetime import datetime
+    mtime = datetime.fromtimestamp(f.stat().st_mtime)
+    return f'{f.name}  {mtime.strftime("%m/%d %H:%M")}'
+
+
 def _make_async_log(log_area: ui.log):
     """返回 (log_fn, queue, drain_coro_factory)。"""
     loop = asyncio.get_event_loop()
@@ -75,7 +82,7 @@ def create() -> None:
                         dwd_select = None
                     else:
                         dwd_select = ui.select(
-                            {str(f): f.name for f in dwd_files},
+                            {str(f): _label(f) for f in dwd_files},
                             value=str(dwd_files[0]),
                         ).classes('w-full')
 
@@ -86,7 +93,7 @@ def create() -> None:
                         txn_select = None
                     else:
                         txn_select = ui.select(
-                            {str(f): f.name for f in txn_files},
+                            {str(f): _label(f) for f in txn_files},
                             value=str(txn_files[0]),
                         ).classes('w-full')
 
@@ -143,7 +150,7 @@ def create() -> None:
                         curr_select = None
                     else:
                         prev_select = ui.select(
-                            {str(f): f.name for f in dwa_output_files},
+                            {str(f): _label(f) for f in dwa_output_files},
                             value=str(dwa_output_files[0]),
                         ).classes('w-full')
 
@@ -151,7 +158,7 @@ def create() -> None:
                     with ui.column().classes('flex-1'):
                         ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
                         curr_select = ui.select(
-                            {str(f): f.name for f in dwa_output_files},
+                            {str(f): _label(f) for f in dwa_output_files},
                             value=str(dwa_output_files[-1]),
                         ).classes('w-full')
 
@@ -206,7 +213,7 @@ def create() -> None:
                         chart_curr_select = None
                     else:
                         chart_prev_select = ui.select(
-                            {str(f): f.name for f in dwa_output_files},
+                            {str(f): _label(f) for f in dwa_output_files},
                             value=str(dwa_output_files[0]),
                         ).classes('w-full')
 
@@ -214,7 +221,7 @@ def create() -> None:
                     with ui.column().classes('flex-1'):
                         ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
                         chart_curr_select = ui.select(
-                            {str(f): f.name for f in dwa_output_files},
+                            {str(f): _label(f) for f in dwa_output_files},
                             value=str(dwa_output_files[-1]),
                         ).classes('w-full')
 
