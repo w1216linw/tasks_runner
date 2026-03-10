@@ -13,8 +13,18 @@ import pandas as pd
 
 LogFn = Callable[[str], None]
 
-TARGET_DRIVERS = ['韩境烨', '安博', '李健', '朱海山', '王洋', '吴波', '陈磊', '邢旭', '刘增榕','吴军']
-TARGET_SET = set(TARGET_DRIVERS)
+TARGET_DRIVERS = ['韩境烨', '安博', '李健', '朱海山', '王洋', '吴波', '陈磊', '邢旭', '刘增榕', '吴军']
+
+
+def _match_driver(raw) -> str | None:
+    """只要字段中包含目标司机名即视为匹配，返回标准名；否则返回 None。"""
+    if raw is None:
+        return None
+    s = str(raw)
+    for target in TARGET_DRIVERS:
+        if target in s:
+            return target
+    return None
 
 
 def run(input_file: Path, output_dir: Path, log: LogFn) -> Path:
@@ -35,8 +45,8 @@ def run(input_file: Path, output_dir: Path, log: LogFn) -> Path:
     total = 0
 
     for row in ws.iter_rows(min_row=2, values_only=True):
-        driver = row[16]  # 第17列（0-indexed）
-        if driver not in TARGET_SET:
+        driver = _match_driver(row[16])  # 第17列（0-indexed）
+        if driver is None:
             continue
         pickup_time = row[0]  # 第1列
         if pickup_time is None:
