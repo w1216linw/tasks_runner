@@ -38,7 +38,10 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     yesterday_str = yesterday.strftime('%m-%d')
 
     module_dir = data_dir / 'input' / 'tubt_pending_orders'
-    orders_path = module_dir / f'{yesterday_str}已下单.xlsx'
+    xlsx_files = sorted(module_dir.glob('*.xlsx'))
+    if not xlsx_files:
+        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .xlsx 文件')
+    orders_path = xlsx_files[0]
     address_path = data_dir / '地址库.xlsx'
 
     log(f'读取: {orders_path.name}')

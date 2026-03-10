@@ -22,8 +22,15 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     plt.rcParams['axes.unicode_minus'] = False
 
     module_dir = data_dir / 'input' / 'tubt_daily_trend'
-    today_file = module_dir / '下单.xlsx'
-    reserve_file = module_dir / '预约.csv'
+    xlsx_files = sorted(module_dir.glob('*.xlsx'))
+    if not xlsx_files:
+        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .xlsx 文件')
+    today_file = xlsx_files[0]
+
+    csv_files = sorted(module_dir.glob('*.csv'))
+    if not csv_files:
+        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .csv 文件')
+    reserve_file = csv_files[0]
     history_csv = data_dir / 'historical_orders.csv'
 
     log(f'读取: {today_file.name}')

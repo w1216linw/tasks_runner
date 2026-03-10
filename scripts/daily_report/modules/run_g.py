@@ -58,7 +58,10 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     g_date_str = last2day_full
 
     module_dir = data_dir / 'input' / 'shein_d2d'
-    sn_file = module_dir / f'SN{last2day_str}.xlsx'
+    xlsx_files = sorted(module_dir.glob('*.xlsx'))
+    if not xlsx_files:
+        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .xlsx 文件')
+    sn_file = xlsx_files[0]
     address_path = data_dir / '地址库.xlsx'
     sn_table_path = data_dir / 'SHEIN-D2D.xlsx'
 

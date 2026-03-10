@@ -37,8 +37,17 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     last2day_full = last2day.strftime('%Y-%m-%d')
 
     module_dir = data_dir / 'input' / 'yy_pickup_rate'
-    reach_file = module_dir / '揽收达成率_完整数据_data.csv'
-    signin_file = module_dir / '目的区域签入量_完整数据_data.csv'
+    reach_file = signin_file = None
+    for f in sorted(module_dir.glob('*.csv')):
+        cols = pd.read_csv(f, encoding='utf-16', sep='\t', nrows=0).columns
+        if '揽收达成率' in cols:
+            reach_file = f
+        elif '签入率' in cols:
+            signin_file = f
+    if reach_file is None:
+        raise FileNotFoundError(f'未在 {module_dir} 找到含「揽收达成率」列的 CSV')
+    if signin_file is None:
+        raise FileNotFoundError(f'未在 {module_dir} 找到含「签入率」列的 CSV')
 
     log(f'读取预约达成率数据 ({last2day_str})')
     df_reach = pd.read_csv(reach_file, encoding='utf-16', sep='\t')

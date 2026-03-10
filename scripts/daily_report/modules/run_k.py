@@ -39,7 +39,10 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     k_date_str = last2day.strftime('%Y-%m-%d')
 
     module_dir = data_dir / 'input' / 'yy_unachieved'
-    orders_path = module_dir / f'{last2day_str}未达成.xlsx'
+    xlsx_files = sorted(module_dir.glob('*.xlsx'))
+    if not xlsx_files:
+        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .xlsx 文件')
+    orders_path = xlsx_files[0]
     address_path = data_dir / '地址库.xlsx'
 
     log(f'读取: {orders_path.name}')
