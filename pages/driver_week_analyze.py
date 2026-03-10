@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 from pathlib import Path
 
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
 from scripts.driver_week_analyze import run_comparison, run_dwa, run_weekly_chart
+from utils.clipboard import copy_image_to_clipboard
 from utils.paths import get_feature_dir, open_path
 
 FEATURE = 'driver_week_analyze'
@@ -29,11 +29,14 @@ def _scan_prefix(subdir: str, prefix: str) -> list[Path]:
     return sorted(f for f in d.glob('*.xlsx') if f.name.lower().startswith(p))
 
 
-def _label(f: Path) -> str:
-    """文件名 + 修改日期，如 'DWA_0304.xlsx  03/04 14:23'。"""
+def _file_select(files: list, selected_path: str) -> 'ui.select':
+    """文件选择器：label 显示「文件名  修改日期」。"""
     from datetime import datetime
-    mtime = datetime.fromtimestamp(f.stat().st_mtime)
-    return f'{f.name}  {mtime.strftime("%m/%d %H:%M")}'
+    opts = {
+        str(f): f'{f.name}  [{datetime.fromtimestamp(f.stat().st_mtime).strftime("%m/%d %H:%M")}]'
+        for f in files
+    }
+    return ui.select(opts, value=selected_path).classes('w-full')
 
 
 def _make_async_log(log_area: ui.log):
@@ -68,34 +71,28 @@ def create() -> None:
             ui.label('第一步：生成 DWA 分析').classes('text-subtitle1 text-bold')
             ui.label(
                 '所需文件放入 data/driver_week_analyze/input/：'
-                '司机数据 dwd_*.xlsx  +  加油交易 transaction_*.xlsx'
+                '司机数据 dwd*.xlsx  +  加油交易 transaction*.xlsx'
             ).classes('text-caption text-grey-7')
 
-            dwd_files = _scan_prefix('input', 'dwa')
+            dwd_files = _scan_prefix('input', 'dwd')
             txn_files = _scan_prefix('input', 'transaction')
 
             with ui.row().classes('gap-md w-full q-mt-sm'):
                 with ui.column().classes('flex-1'):
-                    ui.label('司机数据 (dwd_*.xlsx)').classes('text-caption text-grey-7')
+                    ui.label('司机数据 (dwd*.xlsx)').classes('text-caption text-grey-7')
                     if not dwd_files:
                         ui.label('未找到').classes('text-caption text-negative')
                         dwd_select = None
                     else:
-                        dwd_select = ui.select(
-                            {str(f): _label(f) for f in dwd_files},
-                            value=str(dwd_files[0]),
-                        ).classes('w-full')
+                        dwd_select = _file_select(dwd_files, str(dwd_files[0]))
 
                 with ui.column().classes('flex-1'):
-                    ui.label('加油交易 (Transaction*_*.xlsx)').classes('text-caption text-grey-7')
+                    ui.label('加油交易 (transaction*.xlsx)').classes('text-caption text-grey-7')
                     if not txn_files:
                         ui.label('未找到').classes('text-caption text-negative')
                         txn_select = None
                     else:
-                        txn_select = ui.select(
-                            {str(f): _label(f) for f in txn_files},
-                            value=str(txn_files[0]),
-                        ).classes('w-full')
+                        txn_select = _file_select(txn_files, str(txn_files[0]))
 
             dwa_btn = ui.button('生成 DWA 分析', icon='play_arrow').classes('q-mt-sm')
             dwa_log = ui.log(max_lines=100).classes('w-full h-40 q-mt-sm font-mono text-xs')
@@ -121,6 +118,7 @@ def create() -> None:
                     )
                     queue.put_nowait(None)
                     await drain_task
+                    _render_output_selectors()
                     ui.notify('DWA 分析完成！', type='positive')
                 except Exception as e:
                     queue.put_nowait(f'ERROR: {e}')
@@ -132,41 +130,25 @@ def create() -> None:
 
             dwa_btn.on('click', on_dwa)
 
+        # ── 步骤 2/3 共用：output 文件选择器（可刷新）─────────
+        prev_ref: list = [None]
+        curr_ref: list = [None]
+        chart_prev_ref: list = [None]
+        chart_curr_ref: list = [None]
+
         # ── 第二步: 周对周对比 ────────────────────────────
         with ui.card().classes('w-full q-mt-md'):
-            ui.label('第二步：生成周对周对比报表').classes('text-subtitle1 text-bold')
-            ui.label(
-                '需要两个 dwa_*.xlsx（第一步的输出），放入 data/driver_week_analyze/output/ 后刷新页面。'
-            ).classes('text-caption text-grey-7')
+            with ui.row().classes('items-center gap-sm'):
+                ui.label('第二步：生成周对周对比报表').classes('text-subtitle1 text-bold flex-1')
+                refresh_btn = ui.button(icon='refresh').props('flat dense round')
 
-            dwa_output_files = _scan('output', 'dwa_*.xlsx')
-
-            with ui.row().classes('gap-md w-full q-mt-sm'):
-                with ui.column().classes('flex-1'):
-                    ui.label('上周 dwa_*.xlsx').classes('text-caption text-grey-7')
-                    if len(dwa_output_files) < 2:
-                        ui.label('请先完成两周的 DWA 分析').classes('text-caption text-negative')
-                        prev_select = None
-                        curr_select = None
-                    else:
-                        prev_select = ui.select(
-                            {str(f): _label(f) for f in dwa_output_files},
-                            value=str(dwa_output_files[0]),
-                        ).classes('w-full')
-
-                if len(dwa_output_files) >= 2:
-                    with ui.column().classes('flex-1'):
-                        ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
-                        curr_select = ui.select(
-                            {str(f): _label(f) for f in dwa_output_files},
-                            value=str(dwa_output_files[-1]),
-                        ).classes('w-full')
+            step2_row = ui.row().classes('gap-md w-full q-mt-sm')
 
             cmp_btn = ui.button('生成对比报表', icon='compare_arrows').classes('q-mt-sm')
             cmp_log = ui.log(max_lines=100).classes('w-full h-40 q-mt-sm font-mono text-xs')
 
             async def on_comparison():
-                if prev_select is None or curr_select is None:
+                if prev_ref[0] is None or curr_ref[0] is None:
                     ui.notify('请先完成两周的 DWA 分析', type='negative')
                     return
 
@@ -179,8 +161,8 @@ def create() -> None:
                 try:
                     await run.io_bound(
                         run_comparison,
-                        Path(prev_select.value),
-                        Path(curr_select.value),
+                        Path(prev_ref[0].value),
+                        Path(curr_ref[0].value),
                         output_dir,
                         log,
                     )
@@ -204,26 +186,7 @@ def create() -> None:
                 '选择上周和本周的 dwa_*.xlsx（第一步的输出），生成四图对比周报 PNG。'
             ).classes('text-caption text-grey-7')
 
-            with ui.row().classes('gap-md w-full q-mt-sm'):
-                with ui.column().classes('flex-1'):
-                    ui.label('上周 dwa_*.xlsx').classes('text-caption text-grey-7')
-                    if len(dwa_output_files) < 2:
-                        ui.label('请先完成两周的 DWA 分析').classes('text-caption text-negative')
-                        chart_prev_select = None
-                        chart_curr_select = None
-                    else:
-                        chart_prev_select = ui.select(
-                            {str(f): _label(f) for f in dwa_output_files},
-                            value=str(dwa_output_files[0]),
-                        ).classes('w-full')
-
-                if len(dwa_output_files) >= 2:
-                    with ui.column().classes('flex-1'):
-                        ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
-                        chart_curr_select = ui.select(
-                            {str(f): _label(f) for f in dwa_output_files},
-                            value=str(dwa_output_files[-1]),
-                        ).classes('w-full')
+            step3_row = ui.row().classes('gap-md w-full q-mt-sm')
 
             chart_img_ref: list[Path | None] = [None]
 
@@ -236,7 +199,7 @@ def create() -> None:
             chart_img = ui.column().classes('w-full q-mt-md')
 
             async def on_chart():
-                if chart_prev_select is None or chart_curr_select is None:
+                if chart_prev_ref[0] is None or chart_curr_ref[0] is None:
                     ui.notify('请先完成两周的 DWA 分析', type='negative')
                     return
 
@@ -251,8 +214,8 @@ def create() -> None:
                 try:
                     img_path = await run.io_bound(
                         run_weekly_chart,
-                        Path(chart_prev_select.value),
-                        Path(chart_curr_select.value),
+                        Path(chart_prev_ref[0].value),
+                        Path(chart_curr_ref[0].value),
                         output_dir,
                         log,
                     )
@@ -277,18 +240,46 @@ def create() -> None:
                 if path is None:
                     ui.notify('请先生成图表', type='warning')
                     return
-                data = base64.b64encode(path.read_bytes()).decode()
-                await ui.run_javascript(f'''
-                    const bytes = atob("{data}");
-                    const arr = new Uint8Array(bytes.length);
-                    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-                    const blob = new Blob([arr], {{type: 'image/png'}});
-                    await navigator.clipboard.write([new ClipboardItem({{'image/png': blob}})]);
-                ''', timeout=15.0)
-                ui.notify('图表已复制到剪贴板！', type='positive')
+                await copy_image_to_clipboard(path)
 
             chart_btn.on('click', on_chart)
             copy_chart_btn.on('click', copy_chart)
+
+        def _render_output_selectors():
+            files = _scan('output', 'dwa_*.xlsx')
+
+            step2_row.clear()
+            with step2_row:
+                with ui.column().classes('flex-1'):
+                    ui.label('上周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                    if len(files) < 2:
+                        ui.label('请先完成两周的 DWA 分析').classes('text-caption text-negative')
+                        prev_ref[0] = None
+                        curr_ref[0] = None
+                    else:
+                        prev_ref[0] = _file_select(files, str(files[0]))
+                if len(files) >= 2:
+                    with ui.column().classes('flex-1'):
+                        ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                        curr_ref[0] = _file_select(files, str(files[-1]))
+
+            step3_row.clear()
+            with step3_row:
+                with ui.column().classes('flex-1'):
+                    ui.label('上周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                    if len(files) < 2:
+                        ui.label('请先完成两周的 DWA 分析').classes('text-caption text-negative')
+                        chart_prev_ref[0] = None
+                        chart_curr_ref[0] = None
+                    else:
+                        chart_prev_ref[0] = _file_select(files, str(files[0]))
+                if len(files) >= 2:
+                    with ui.column().classes('flex-1'):
+                        ui.label('本周 dwa_*.xlsx').classes('text-caption text-grey-7')
+                        chart_curr_ref[0] = _file_select(files, str(files[-1]))
+
+        _render_output_selectors()
+        refresh_btn.on('click', lambda: _render_output_selectors())
 
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'

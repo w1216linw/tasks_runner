@@ -4,7 +4,7 @@ from components.layout import sidebar
 from utils.paths import get_app_dir, open_path
 
 
-def _clear_all_inputs() -> str:
+def _clear_all_inputs() -> list:
     """删除 data/*/input/ 下的所有文件，返回摘要文字。"""
     removed = []
     for input_dir in sorted(get_app_dir().glob('*/input')):

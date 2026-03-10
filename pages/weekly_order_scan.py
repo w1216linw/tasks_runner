@@ -40,7 +40,8 @@ def create() -> None:
 
         with ui.row().classes('q-mt-md gap-sm items-center'):
             run_btn = ui.button('运行', icon='play_arrow')
-            copy_btn = ui.button('复制输出', icon='content_copy').props('flat').disable()
+            copy_btn = ui.button('复制输出', icon='content_copy').props('flat')
+            copy_btn.disable()
 
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
 

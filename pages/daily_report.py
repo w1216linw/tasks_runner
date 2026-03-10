@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import base64
 import importlib.util
 import json
 from datetime import date, datetime
@@ -13,6 +12,7 @@ from typing import Callable
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
+from utils.clipboard import copy_image_to_clipboard
 from utils.paths import get_base_dir, get_feature_dir, open_path
 
 SCRIPTS_DIR = get_base_dir() / 'scripts' / 'daily_report'
@@ -134,18 +134,7 @@ def create() -> None:
         el.classes(replace=icon_class)
 
     async def _copy_image(path: Path):
-        try:
-            data = base64.b64encode(path.read_bytes()).decode()
-            await ui.run_javascript(f'''
-                const bytes = atob("{data}");
-                const arr = new Uint8Array(bytes.length);
-                for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
-                const blob = new Blob([arr], {{type: 'image/png'}});
-                await navigator.clipboard.write([new ClipboardItem({{'image/png': blob}})]);
-            ''', timeout=15.0)
-            ui.notify('图片已复制', type='positive')
-        except Exception as e:
-            ui.notify(f'复制失败: {e}', type='negative')
+        await copy_image_to_clipboard(path)
 
     def _show_step_outputs(step_id: str, result: dict):
         container = step_output_els.get(step_id)

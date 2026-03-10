@@ -14,6 +14,14 @@ import pgeocode
 
 LogFn = Callable[[str], None]
 
+
+def _date_tag(df: 'pd.DataFrame') -> str:
+    """从 Date_Only 列提取日期标签：单日 → YYMMDD，多日 → YYMMDD-YYMMDD。"""
+    dates = pd.to_datetime(df['Date_Only']).dt.date
+    lo, hi = dates.min(), dates.max()
+    fmt = lambda d: d.strftime('%y%m%d')
+    return fmt(lo) if lo == hi else f'{fmt(lo)}-{fmt(hi)}'
+
 STATE_NAME_TO_CODE: dict[str, str] = {
     'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
     'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
@@ -121,9 +129,8 @@ def run_daily(
     处理单日订单数据。
     返回 {'orders': Path, 'daily_stats': Path}。
     """
-    date_str = temu_file.stem.replace('TEMU_', '')
     log("=" * 60)
-    log(f"单日处理: {date_str}")
+    log("单日处理")
     log("=" * 60)
 
     log("初始化 pgeocode...")
@@ -134,6 +141,9 @@ def run_daily(
     log(f"  TEMU tracking numbers: {len(tracking):,}")
 
     df_yy, df_yy_before = _process_yy(yy_file, tracking, log)
+
+    date_str = _date_tag(df_temu)
+    log(f"  日期标签: {date_str}")
 
     # 按州汇总
     temu_counts = df_temu.groupby(['State_Code', 'State_Name']).size().reset_index(name='TEMU_Orders')
@@ -190,11 +200,8 @@ def run_weekly(
     处理周订单数据（支持多个 TEMU 文件）。
     返回 {'orders': Path, 'daily_stats': Path}。
     """
-    stems = [f.stem.replace('TEMU_', '') for f in temu_files]
-    date_range = f"{stems[0].split('-')[0]}-{stems[-1].split('-')[-1]}" if len(stems) > 1 else stems[0]
-
     log("=" * 60)
-    log(f"周处理: {date_range}")
+    log("周处理")
     log("=" * 60)
 
     log("初始化 pgeocode...")
@@ -215,6 +222,9 @@ def run_weekly(
     log(f"  唯一 tracking numbers: {len(tracking):,}")
 
     df_yy, df_yy_before = _process_yy(yy_file, tracking, log)
+
+    date_range = _date_tag(df_temu_all)
+    log(f"  日期标签: {date_range}")
 
     # 按日期+州汇总
     temu_counts = df_temu_all.groupby(['Date_Only', 'State_Code', 'State_Name']).size().reset_index(name='Order_Count')

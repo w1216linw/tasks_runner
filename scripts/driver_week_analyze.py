@@ -28,17 +28,27 @@ NAME_MAPPING: dict[str, str] = {
 }
 
 
-def _read_driver_data(file_path: Path, log: LogFn) -> pd.DataFrame:
+def _read_driver_data(file_path: Path, log: LogFn) -> tuple[pd.DataFrame, str]:
+    """返回 (汇总DataFrame, 日期字符串 MMDD)。日期取第5列最晚值。"""
     log(f'读取司机数据: {file_path.name}')
     df = pd.read_excel(file_path)
     df.columns = ['Driver_Name', 'Work_Hours', 'Tasks', 'Mileage', 'Date_Column']
+
+    dates = pd.to_datetime(df['Date_Column'], errors='coerce').dropna()
+    if not dates.empty:
+        latest = dates.max()
+        monday = latest - pd.Timedelta(days=latest.weekday())  # 回退到当周周一
+        date_str = monday.strftime('%y%m%d')
+    else:
+        date_str = re.sub(r'[^0-9]', '', file_path.stem)[:6] or file_path.stem
+
     summary = df.groupby('Driver_Name').agg({
         'Work_Hours': 'sum',
         'Tasks': 'sum',
         'Mileage': 'sum',
     }).reset_index()
-    log(f'  司机数: {len(summary)}')
-    return summary
+    log(f'  司机数: {len(summary)},  周末日期: {date_str}')
+    return summary, date_str
 
 
 def _read_transaction_data(file_path: Path, log: LogFn) -> pd.DataFrame:
@@ -84,7 +94,7 @@ def run_dwa(driver_file: Path, transaction_file: Path, output_dir: Path, log: Lo
     log('司机周数据分析 (DWA)')
     log('=' * 60)
 
-    driver_data = _read_driver_data(driver_file, log)
+    driver_data, date_str = _read_driver_data(driver_file, log)
     transaction_data = _read_transaction_data(transaction_file, log)
 
     il_drivers: set[str] = set(transaction_data['Driver'].unique()) if transaction_data is not None else set()
@@ -136,9 +146,6 @@ def run_dwa(driver_file: Path, transaction_file: Path, output_dir: Path, log: Lo
         '平均揽收间距(英里/任务)', '每任务时长(小时/任务)',
         '工作负荷指数(任务×里程/小时)', '综合工作密度((任务+里程/10)/6天)',
     ]
-
-    match = re.search(r'dwd_(\w+)', driver_file.stem, re.IGNORECASE)
-    date_str = match.group(1) if match else driver_file.stem
 
     output_dir.mkdir(parents=True, exist_ok=True)
     output_path = output_dir / f'dwa_{date_str}.xlsx'

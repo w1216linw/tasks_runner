@@ -9,6 +9,7 @@ from nicegui import run, ui
 
 from components.layout import back_button, sidebar
 from scripts.generate_weekly_trends import run as run_trends
+from utils.clipboard import copy_image_to_clipboard
 from utils.paths import get_feature_dir, open_path
 
 FEATURE = 'generate_weekly_trends'
@@ -63,8 +64,13 @@ def create() -> None:
         with ui.card().classes('w-full q-mt-md'):
             hist_label = ui.label(_history_label()).classes('text-caption text-grey-7')
 
-        run_btn = ui.button('运行', icon='play_arrow').classes('q-mt-md')
+        with ui.row().classes('q-mt-md gap-sm items-center'):
+            run_btn = ui.button('运行', icon='play_arrow')
+            copy_btn = ui.button('复制图表', icon='content_copy').props('flat')
+            copy_btn.disable()
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
+
+        img_ref: list[Path | None] = [None]
 
         # 图片预览区域
         img_container = ui.column().classes('w-full q-mt-md')
@@ -106,11 +112,11 @@ def create() -> None:
                 queue.put_nowait(None)
                 await drain_task
 
-                # 显示生成的图片
+                img_ref[0] = output_path
                 with img_container:
                     ui.label('趋势图预览').classes('text-subtitle1 text-bold')
                     ui.image(str(output_path)).classes('w-full')
-
+                copy_btn.enable()
                 ui.notify('趋势图已生成！', type='positive')
             except Exception as e:
                 queue.put_nowait(f'ERROR: {e}')
@@ -120,7 +126,14 @@ def create() -> None:
             finally:
                 run_btn.enable()
 
+        async def on_copy():
+            if img_ref[0] is None:
+                ui.notify('请先运行生成图表', type='warning')
+                return
+            await copy_image_to_clipboard(img_ref[0])
+
         run_btn.on('click', on_run)
+        copy_btn.on('click', on_copy)
 
         def open_output():
             out = get_feature_dir(FEATURE) / 'output'

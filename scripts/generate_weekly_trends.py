@@ -35,11 +35,7 @@ def _extract_daily_orders(orders_dir: Path, log: LogFn) -> pd.DataFrame:
     for csv_file in sorted(orders_dir.glob('daily_statistics_*.csv')):
         df = pd.read_csv(csv_file, encoding='utf-8-sig')
         for _, row in df.iterrows():
-            date_str = str(row['Date'])
-            try:
-                date_obj = datetime.strptime(date_str, '%m/%d/%Y')
-            except ValueError:
-                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
+            date_obj = pd.to_datetime(str(row['Date']), dayfirst=False).to_pydatetime()
             formatted = date_obj.strftime('%Y-%m-%d')
             daily_data.append({
                 'date': formatted,
