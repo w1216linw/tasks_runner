@@ -21,6 +21,14 @@ def _scan(subdir: str, pattern: str) -> list[Path]:
     return sorted(d.glob(pattern))
 
 
+def _scan_prefix(subdir: str, prefix: str) -> list[Path]:
+    """大小写不敏感地匹配指定前缀的 .xlsx 文件。"""
+    d = get_feature_dir(FEATURE) / subdir
+    d.mkdir(parents=True, exist_ok=True)
+    p = prefix.lower()
+    return sorted(f for f in d.glob('*.xlsx') if f.name.lower().startswith(p))
+
+
 def _make_async_log(log_area: ui.log):
     """返回 (log_fn, queue, drain_coro_factory)。"""
     loop = asyncio.get_event_loop()
@@ -56,8 +64,8 @@ def create() -> None:
                 '司机数据 dwd_*.xlsx  +  加油交易 transaction_*.xlsx'
             ).classes('text-caption text-grey-7')
 
-            dwd_files = _scan('input', 'dwd_*.xlsx')
-            txn_files = _scan('input', 'Transaction*_*.xlsx')
+            dwd_files = _scan_prefix('input', 'dwa')
+            txn_files = _scan_prefix('input', 'transaction')
 
             with ui.row().classes('gap-md w-full q-mt-sm'):
                 with ui.column().classes('flex-1'):
