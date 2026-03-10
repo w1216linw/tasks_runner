@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
 from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
@@ -56,7 +57,14 @@ def _load_report_generator():
 def create() -> None:
     sidebar()
 
+    _stats_file = get_feature_dir('daily_report') / 'step_stats.json'
     step_stats: dict[str, dict] = {}
+    try:
+        if _stats_file.exists():
+            step_stats.update(json.loads(_stats_file.read_text(encoding='utf-8')))
+    except Exception:
+        pass
+
     step_icon_els: dict[str, ui.icon] = {}
     step_btn_els: dict[str, ui.button] = {}
     md_path_ref: list[Path | None] = [None]
@@ -146,6 +154,10 @@ def create() -> None:
             log(f'\n[{step_id.upper()}] 开始...')
             result = await run.io_bound(_run_step, module_name, today, data_dir, output_dir, log)
             step_stats[step_id] = result
+            try:
+                _stats_file.write_text(json.dumps(step_stats), encoding='utf-8')
+            except Exception:
+                pass
             _set_status(step_id, 'success')
             log(f'[{step_id.upper()}] 完成 ✓')
         except Exception as e:
@@ -176,6 +188,11 @@ def create() -> None:
     # ── 运行全部 ─────────────────────────────────────────────────────────────
 
     async def on_run_all():
+        step_stats.clear()
+        try:
+            _stats_file.unlink(missing_ok=True)
+        except Exception:
+            pass
         run_all_btn.disable()
         gen_md_btn.disable()
         for step in STEPS:
