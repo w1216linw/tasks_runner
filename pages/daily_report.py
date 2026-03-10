@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import importlib.util
 import json
 from datetime import date, datetime
@@ -67,6 +68,7 @@ def create() -> None:
 
     step_icon_els: dict[str, ui.icon] = {}
     step_btn_els: dict[str, ui.button] = {}
+    step_output_els: dict[str, ui.column] = {}
     md_path_ref: list[Path | None] = [None]
 
     with ui.column().classes('w-full q-pa-lg gap-md'):
@@ -85,12 +87,14 @@ def create() -> None:
 
         # 步骤列表
         for step in STEPS:
-            with ui.row().classes('items-center gap-sm w-full'):
-                icon_el = ui.icon(STATUS_ICON['pending'][0], size='sm').classes(STATUS_ICON['pending'][1])
-                ui.label(step['label']).classes('text-body1 flex-1')
-                btn = ui.button('单独运行', icon='play_arrow').props('flat dense color=primary')
-                step_icon_els[step['id']] = icon_el
-                step_btn_els[step['id']] = btn
+            with ui.column().classes('w-full gap-0'):
+                with ui.row().classes('items-center gap-sm w-full'):
+                    icon_el = ui.icon(STATUS_ICON['pending'][0], size='sm').classes(STATUS_ICON['pending'][1])
+                    ui.label(step['label']).classes('text-body1 flex-1')
+                    btn = ui.button('单独运行', icon='play_arrow').props('flat dense color=primary')
+                    step_icon_els[step['id']] = icon_el
+                    step_btn_els[step['id']] = btn
+                step_output_els[step['id']] = ui.column().classes('w-full')
 
         ui.separator()
 
@@ -128,6 +132,38 @@ def create() -> None:
         el.name = icon_name
         el.classes(replace=icon_class)
 
+    async def _copy_image(path: Path):
+        try:
+            data = base64.b64encode(path.read_bytes()).decode()
+            await ui.run_javascript(f'''
+                const bytes = atob("{data}");
+                const arr = new Uint8Array(bytes.length);
+                for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+                const blob = new Blob([arr], {{type: 'image/png'}});
+                await navigator.clipboard.write([new ClipboardItem({{'image/png': blob}})]);
+            ''', timeout=15.0)
+            ui.notify('图片已复制', type='positive')
+        except Exception as e:
+            ui.notify(f'复制失败: {e}', type='negative')
+
+    def _show_step_outputs(step_id: str, result: dict):
+        container = step_output_els.get(step_id)
+        if container is None:
+            return
+        images = [(Path(v)) for v in result.values() if isinstance(v, str) and v.endswith('.png')]
+        if not images:
+            return
+        container.clear()
+        with container:
+            for img_path in images:
+                with ui.row().classes('items-center gap-sm q-pl-lg q-py-xs'):
+                    ui.icon('image', size='xs').classes('text-grey-5')
+                    ui.label(img_path.name).classes('text-caption text-grey-7 flex-1 font-mono')
+                    ui.button(
+                        icon='content_copy',
+                        on_click=lambda p=img_path: asyncio.create_task(_copy_image(p)),
+                    ).props('flat dense size=xs color=grey')
+
     # ── 执行单个步骤 ─────────────────────────────────────────────────────────
 
     async def _execute_step(step_id: str, module_name: str):
@@ -159,6 +195,7 @@ def create() -> None:
             except Exception:
                 pass
             _set_status(step_id, 'success')
+            _show_step_outputs(step_id, result)
             log(f'[{step_id.upper()}] 完成 ✓')
         except Exception as e:
             import traceback
@@ -238,3 +275,8 @@ def create() -> None:
     for step in STEPS:
         sid, mod = step['id'], step['module']
         step_btn_els[sid].on('click', lambda s=sid, m=mod: asyncio.create_task(_execute_step(s, m)))
+
+    # 从持久化数据恢复状态图标和图片行
+    for step_id, result in step_stats.items():
+        _set_status(step_id, 'success')
+        _show_step_outputs(step_id, result)
