@@ -109,8 +109,9 @@ def create() -> None:
             open_md_btn = ui.button('打开文件', icon='open_in_new').props('flat dense')
             open_md_btn.visible = False
 
-        # 清理
-        ui.button('清理 input 文件', icon='delete_sweep', on_click=lambda: _confirm_clear()).props('flat color=negative').classes('q-mt-sm')
+        with ui.row().classes('gap-sm q-mt-sm'):
+            ui.button('打开输出目录', icon='folder_open', on_click=lambda: open_path(_get_dirs()[1])).props('flat')
+            ui.button('清理 input 文件', icon='delete_sweep', on_click=lambda: _confirm_clear()).props('flat color=negative')
 
     # ── 辅助 ────────────────────────────────────────────────────────────────
 
