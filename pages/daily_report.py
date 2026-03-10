@@ -161,8 +161,11 @@ def create() -> None:
             _set_status(step_id, 'success')
             log(f'[{step_id.upper()}] 完成 ✓')
         except Exception as e:
+            import traceback
             _set_status(step_id, 'error')
             log(f'[{step_id.upper()}] 失败: {e}')
+            for line in traceback.format_exc().splitlines():
+                log(f'  {line}')
         finally:
             queue.put_nowait(None)
             await drain_task
