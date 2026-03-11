@@ -129,17 +129,23 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     # 保存到 SHEIN-D2D.xlsx
     wb = load_workbook(sn_table_path)
     ws = wb['Sheet1']
-    last_row = ws.max_row + 1
-    ws.cell(row=last_row, column=1, value=last2day_full)
-    ws.cell(row=last_row, column=2, value=total_sn)
-    ws.cell(row=last_row, column=3, value=sign_in_sn)
-    ws.cell(row=last_row, column=4, value=sign_in_sn_percent / 100)
-    ws.cell(row=last_row, column=5, value=sign_in_sn)
-    ws.cell(row=last_row, column=6, value=sign_in_sn_percent / 100)
-    for col in range(1, 7):
-        _copy_style_from_above(ws, last_row, col)
-    wb.save(sn_table_path)
-    log('已保存到 SHEIN-D2D.xlsx')
+    last_row = ws.max_row
+    last_date = ws.cell(row=last_row, column=1).value
+    last_date_str = last_date.strftime('%Y-%m-%d') if hasattr(last_date, 'strftime') else (str(last_date) if last_date else '')
+    if last_date_str == last2day_full:
+        log(f'SHEIN-D2D.xlsx 已有 {last2day_full} 数据，跳过写入')
+    else:
+        new_row = last_row + 1
+        ws.cell(row=new_row, column=1, value=last2day_full)
+        ws.cell(row=new_row, column=2, value=total_sn)
+        ws.cell(row=new_row, column=3, value=sign_in_sn)
+        ws.cell(row=new_row, column=4, value=sign_in_sn_percent / 100)
+        ws.cell(row=new_row, column=5, value=sign_in_sn)
+        ws.cell(row=new_row, column=6, value=sign_in_sn_percent / 100)
+        for col in range(1, 7):
+            _copy_style_from_above(ws, new_row, col)
+        wb.save(sn_table_path)
+        log('已保存到 SHEIN-D2D.xlsx')
 
     return {
         'total_sn': total_sn,

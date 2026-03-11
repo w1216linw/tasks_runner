@@ -74,14 +74,32 @@ def create() -> None:
     with ui.column().classes('w-full q-pa-lg gap-md'):
         with ui.row().classes('items-center gap-sm'):
             back_button()
-            ui.label('日报制作器').classes('text-h4 text-bold')
+            ui.label('日报').classes('text-h4 text-bold')
         ui.separator()
 
         # 日期 + 操作按钮
-        with ui.row().classes('items-center gap-md q-mt-md'):
-            date_picker = ui.date(value=date.today().isoformat()).classes('w-40')
-            run_all_btn = ui.button('运行全部', icon='play_arrow').props('color=primary')
-            gen_md_btn = ui.button('生成日报', icon='description').props('color=secondary')
+        with ui.dialog() as date_dialog, ui.card().classes('p-0'):
+            date_picker = ui.date(value=date.today().isoformat())
+
+        with ui.row().classes('gap-sm q-mt-md flex-wrap'):
+            with ui.row().classes('items-center'):
+                date_display = ui.label(date.today().isoformat()).classes('text-body1 text-bold')
+                ui.button('更改', icon='edit', on_click=date_dialog.open).props('flat dense color=grey-7')
+                ui.separator().props('vertical').classes('self-stretch mx-1')
+                run_all_btn = ui.button('运行全部', icon='play_arrow').props('color=primary')
+                gen_md_btn = ui.button('生成日报', icon='description').props('color=secondary')
+            with ui.row().classes('items.center'):
+                ui.button('打开输出目录', icon='folder_open',
+                      on_click=lambda: open_path(_get_dirs()[1])).props('flat color=grey-8')
+                ui.button('打开input目录', icon='folder',
+                      on_click=lambda: open_path(get_feature_dir('daily_report') / 'input')).props('flat color=grey-8')
+                ui.button('清理input', icon='delete_sweep',
+                      on_click=lambda: _confirm_clear()).props('flat color=negative')
+
+        def _on_date_pick():
+            date_display.set_text(date_picker.value or date.today().isoformat())
+            date_dialog.close()
+        date_picker.on('update:modelValue', lambda _: _on_date_pick())
 
         ui.separator()
 
@@ -109,9 +127,6 @@ def create() -> None:
             open_md_btn = ui.button('打开文件', icon='open_in_new').props('flat dense')
             open_md_btn.visible = False
 
-        with ui.row().classes('gap-sm q-mt-sm'):
-            ui.button('打开输出目录', icon='folder_open', on_click=lambda: open_path(_get_dirs()[1])).props('flat')
-            ui.button('清理 input 文件', icon='delete_sweep', on_click=lambda: _confirm_clear()).props('flat color=negative')
 
     # ── 辅助 ────────────────────────────────────────────────────────────────
 
@@ -136,15 +151,25 @@ def create() -> None:
     async def _copy_image(path: Path):
         await copy_image_to_clipboard(path)
 
+    def _get_step_result_text(step_id: str) -> str | None:
+        all_stats: dict = {}
+        for v in step_stats.values():
+            all_stats.update(v)
+        gen = _load_report_generator()
+        return gen.get_step_results(_get_today(), all_stats).get(step_id)
+
     def _show_step_outputs(step_id: str, result: dict):
         container = step_output_els.get(step_id)
         if container is None:
             return
-        images = [(Path(v)) for v in result.values() if isinstance(v, str) and v.endswith('.png')]
-        if not images:
+        images = [Path(v) for v in result.values() if isinstance(v, str) and v.endswith('.png')]
+        result_text = _get_step_result_text(step_id)
+        if not images and not result_text:
             return
         container.clear()
         with container:
+            if result_text:
+                ui.markdown(result_text).classes('text-body2 q-pl-lg q-py-xs text-grey-8')
             for img_path in images:
                 with ui.row().classes('items-center gap-sm q-pl-lg q-py-xs'):
                     ui.icon('image', size='xs').classes('text-grey-5')

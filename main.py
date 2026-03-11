@@ -79,4 +79,4 @@ def daily_report():
     daily_report_page()
 
 
-ui.run(title='TaskRunner', native=_USE_NATIVE, reload=False)
+ui.run(title='TaskRunner', favicon='📦', native=_USE_NATIVE, reload=False)

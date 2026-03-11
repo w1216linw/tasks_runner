@@ -73,12 +73,6 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
 
     log(f'揽收达成: {reach_count}/{total_count} ({reach_percent}%), 签入: {signin_count} ({signin_percent}%)')
 
-    # 导出未达成单号供 k 模块使用
-    df_reach_zero = df_reach[df_reach['揽收达成率'] == 0.0][['单据号']]
-    zero_output = data_dir / 'input' / 'yy_unachieved' / f'{last2day_str}未达成单号.csv'
-    df_reach_zero.to_csv(zero_output, index=False, encoding='utf-8-sig')
-    log(f'已输出 {len(df_reach_zero)} 条未达成单号到 k/')
-
     # 饼图
     fig, ax = plt.subplots(figsize=(6, 6))
     ax.pie([signin_percent, fail_percent], labels=['揽收达成', '揽收未达成'],
@@ -95,19 +89,25 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     excel_path = data_dir / 'gofo_pickup_data.xlsx'
     wb = load_workbook(excel_path)
     ws = wb['预约']
-    last_row = ws.max_row + 1
-    ws.cell(row=last_row, column=1, value=last2day_full)
-    ws.cell(row=last_row, column=2, value=total_count)
-    ws.cell(row=last_row, column=3, value=reach_count)
-    ws.cell(row=last_row, column=4, value=reach_percent / 100)
-    ws.cell(row=last_row, column=5, value=signin_count)
-    ws.cell(row=last_row, column=6, value=signin_percent / 100)
-    ws.cell(row=last_row, column=7, value=reach_fail_count)
-    ws.cell(row=last_row, column=8, value=0)
-    for col in range(1, 9):
-        _copy_style_from_above(ws, last_row, col)
-    wb.save(excel_path)
-    log('已保存到 gofo_pickup_data.xlsx 预约 sheet')
+    last_row = ws.max_row
+    last_date = ws.cell(row=last_row, column=1).value
+    last_date_str = last_date.strftime('%Y-%m-%d') if hasattr(last_date, 'strftime') else (str(last_date) if last_date else '')
+    if last_date_str == last2day_full:
+        log(f'gofo_pickup_data.xlsx 预约 sheet 已有 {last2day_full} 数据，跳过写入')
+    else:
+        new_row = last_row + 1
+        ws.cell(row=new_row, column=1, value=last2day_full)
+        ws.cell(row=new_row, column=2, value=total_count)
+        ws.cell(row=new_row, column=3, value=reach_count)
+        ws.cell(row=new_row, column=4, value=reach_percent / 100)
+        ws.cell(row=new_row, column=5, value=signin_count)
+        ws.cell(row=new_row, column=6, value=signin_percent / 100)
+        ws.cell(row=new_row, column=7, value=reach_fail_count)
+        ws.cell(row=new_row, column=8, value=0)
+        for col in range(1, 9):
+            _copy_style_from_above(ws, new_row, col)
+        wb.save(excel_path)
+        log('已保存到 gofo_pickup_data.xlsx 预约 sheet')
 
     return {
         'reach_percent': reach_percent,
@@ -115,6 +115,5 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
         'signin_percent': signin_percent,
         'signin_fail_count': signin_fail_count,
         'fail_percent': fail_percent,
-        'df_reach_zero': len(df_reach_zero),
         'j_image_pie': str(j_image_pie),
     }
