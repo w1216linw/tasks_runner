@@ -83,5 +83,6 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     log(f'图片已保存: {k_image_bar.name}')
     return {
         'k_date_str': k_date_str,
+        'k_total': k_total,
         'k_image_bar': str(k_image_bar),
     }

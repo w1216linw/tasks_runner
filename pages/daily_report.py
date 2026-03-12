@@ -89,10 +89,10 @@ def create() -> None:
                 run_all_btn = ui.button('运行全部', icon='play_arrow').props('color=primary')
                 gen_md_btn = ui.button('生成日报', icon='description').props('color=secondary')
             with ui.row().classes('items.center'):
+                ui.button('打开目录', icon='folder',
+                      on_click=lambda: open_path(get_feature_dir('daily_report'))).props('flat color=grey-8')
                 ui.button('打开输出目录', icon='folder_open',
                       on_click=lambda: open_path(_get_dirs()[1])).props('flat color=grey-8')
-                ui.button('打开input目录', icon='folder',
-                      on_click=lambda: open_path(get_feature_dir('daily_report') / 'input')).props('flat color=grey-8')
                 ui.button('清理input', icon='delete_sweep',
                       on_click=lambda: _confirm_clear()).props('flat color=negative')
 
@@ -176,7 +176,7 @@ def create() -> None:
                     ui.label(img_path.name).classes('text-caption text-grey-7 flex-1 font-mono')
                     ui.button(
                         icon='content_copy',
-                        on_click=lambda p=img_path: asyncio.create_task(_copy_image(p)),
+                        on_click=lambda p=img_path: _copy_image(p),
                     ).props('flat dense size=xs color=grey')
 
     # ── 执行单个步骤 ─────────────────────────────────────────────────────────
