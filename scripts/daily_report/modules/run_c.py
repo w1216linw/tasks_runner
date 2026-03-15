@@ -28,9 +28,7 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     today_file = xlsx_files[0]
 
     csv_files = sorted(module_dir.glob('*.csv'))
-    if not csv_files:
-        raise FileNotFoundError(f'未在 {module_dir} 找到任何 .csv 文件')
-    reserve_file = csv_files[0]
+    reserve_file = csv_files[0] if csv_files else None
     history_csv = data_dir / 'historical_orders.csv'
 
     log(f'读取: {today_file.name}')
@@ -117,6 +115,16 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     log(f'图片已保存: {c_image_trend.name}')
 
     # 1.b 预约揽收实际单量
+    if reserve_file is None:
+        log('未找到 .csv 文件，跳过预约揽收统计')
+        return {
+            'total_orders_today': total_orders_today,
+            'total_cancel': total_cancel,
+            'df_reserve': None,
+            'df_reserve_clean': None,
+            'c_image_trend': str(c_image_trend),
+        }
+
     df_temu = pd.read_excel(today_file, dtype={'运单号': str})
     df_reserve = pd.read_csv(reserve_file, dtype={'单据号': str}, encoding='utf-16', sep='\t')
     df_reserve_clean = df_reserve[

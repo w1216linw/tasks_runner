@@ -22,7 +22,8 @@ def generate(today: datetime, stats: dict, output_dir: Path) -> Path:
         f'## 一、今日下单情况（{yesterday} 08:00 – {today_str} 08:00）',
         '',
         f'ORD TUBT 下单 {s("total_orders_today")} 单（含取消 {s("total_cancel")} 单）。',
-        f'预约揽收 {s("df_reserve")} 单，去重后 {s("df_reserve_clean")} 单。',
+        (f'预约揽收 {s("df_reserve")} 单，去重后 {s("df_reserve_clean")} 单。'
+         if stats.get('df_reserve') is not None else '无预约揽收。'),
         '',
         '---',
         '',
@@ -78,7 +79,8 @@ def get_step_results(today: datetime, stats: dict) -> dict:
         'h': f'自打面单操作量为 **{s("sp_operation_count")}** 单。',
         'c': (
             f'ORD TUBT 下单 **{s("total_orders_today")}** 单（含取消 {s("total_cancel")} 单）。  \n'
-            f'预约揽收 **{s("df_reserve")}** 单，去重后 **{s("df_reserve_clean")}** 单。'
+            + (f'预约揽收 **{s("df_reserve")}** 单，去重后 **{s("df_reserve_clean")}** 单。'
+               if stats.get('df_reserve') is not None else '无预约揽收。')
         ),
         'd': f'已下单订单共 **{s("orders")}** 单，其中 **{s("reach_rate")}%** 的地址已触达。',
         'g': (

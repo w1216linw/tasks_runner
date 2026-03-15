@@ -12,7 +12,7 @@ from typing import Callable
 from nicegui import run, ui
 
 from components.layout import back_button, sidebar
-from utils.clipboard import copy_image_to_clipboard
+from utils.clipboard import copy_image_to_clipboard, copy_text_to_clipboard
 from utils.paths import get_base_dir, get_feature_dir, open_path
 
 SCRIPTS_DIR = get_base_dir() / 'scripts' / 'daily_report'
@@ -103,6 +103,13 @@ def create() -> None:
 
         ui.separator()
 
+        # 预约未达成
+        with ui.row().classes('items-center gap-sm q-mt-xs'):
+            reach_zero_btn = ui.button('生成预约未达成', icon='search').props('flat color=grey-8')
+        reach_zero_result_row = ui.row().classes('items-center gap-sm q-pl-xs q-py-xs')
+
+        ui.separator()
+
         # 步骤列表
         for step in STEPS:
             with ui.column().classes('w-full gap-0'):
@@ -150,6 +157,45 @@ def create() -> None:
 
     async def _copy_image(path: Path):
         await copy_image_to_clipboard(path)
+
+    def _load_reach_zero_ids() -> list[str]:
+        import pandas as pd
+        data_dir = get_feature_dir('daily_report')
+        module_dir = data_dir / 'input' / 'yy_pickup_rate'
+        reach_file = None
+        for f in sorted(module_dir.glob('*.csv')):
+            cols = pd.read_csv(f, encoding='utf-16', sep='\t', nrows=0).columns
+            if '揽收达成率' in cols:
+                reach_file = f
+                break
+        if reach_file is None:
+            raise FileNotFoundError(f'未在 {module_dir} 找到含「揽收达成率」列的 CSV')
+        df = pd.read_csv(reach_file, encoding='utf-16', sep='\t')
+        def to_float_percent(x):
+            if isinstance(x, str) and '%' in x:
+                return float(x.replace('%', '')) / 100
+            return float(x) if pd.notnull(x) else 0.0
+        df['揽收达成率'] = df['揽收达成率'].apply(to_float_percent)
+        return df[df['揽收达成率'] == 0.0]['单据号'].astype(str).tolist()
+
+    async def _on_reach_zero_click():
+        reach_zero_btn.disable()
+        try:
+            ids: list[str] = await run.io_bound(_load_reach_zero_ids)
+            reach_zero_result_row.clear()
+            with reach_zero_result_row:
+                ui.label(f'reach_zero: {len(ids)} 单').classes('text-body2 text-grey-8')
+                ui.separator().props('vertical').classes('self-stretch mx-1')
+                async def _copy_partial(id_list=ids):
+                    await copy_text_to_clipboard('\n'.join(id_list[:950]))
+                async def _copy_all(id_list=ids):
+                    await copy_text_to_clipboard('\n'.join(id_list))
+                ui.button('前950单', icon='content_copy', on_click=_copy_partial).props('flat dense size=xs color=grey')
+                ui.button('全部', icon='content_copy', on_click=_copy_all).props('flat dense size=xs color=grey')
+        except Exception as e:
+            ui.notify(f'读取失败: {e}', type='negative')
+        finally:
+            reach_zero_btn.enable()
 
     def _get_step_result_text(step_id: str) -> str | None:
         all_stats: dict = {}
@@ -286,6 +332,7 @@ def create() -> None:
     run_all_btn.on('click', on_run_all)
     gen_md_btn.on('click', _generate_md)
     open_md_btn.on('click', lambda: open_path(md_path_ref[0]) if md_path_ref[0] else None)
+    reach_zero_btn.on('click', _on_reach_zero_click)
 
     for step in STEPS:
         sid, mod = step['id'], step['module']

@@ -64,6 +64,7 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
     total_count = len(df_reach)
     reach_count = int((df_reach['揽收达成率'] == 1.0).sum())
     reach_fail_count = int((df_reach['揽收达成率'] == 0.0).sum())
+    reach_zero_ids = df_reach[df_reach['揽收达成率'] == 0.0]['单据号'].astype(str).tolist()
     reach_percent = round(reach_count / total_count * 100, 1) if total_count > 0 else 0
 
     signin_count = int((df_signin['签入率'] == 1.0).sum())
@@ -116,4 +117,5 @@ def run(today: datetime, data_dir: Path, output_dir: Path, log: Callable) -> dic
         'signin_fail_count': signin_fail_count,
         'fail_percent': fail_percent,
         'j_image_pie': str(j_image_pie),
+        'reach_zero_ids': reach_zero_ids,
     }
