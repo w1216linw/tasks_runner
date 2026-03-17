@@ -94,7 +94,29 @@ def create() -> None:
                     else:
                         txn_select = _file_select(txn_files, str(txn_files[0]))
 
-            dwa_btn = ui.button('生成 DWA 分析', icon='play_arrow').classes('q-mt-sm')
+            def _confirm_clear():
+                with ui.dialog() as dlg, ui.card():
+                    ui.label('确认清理').classes('text-subtitle1 text-bold')
+                    ui.label('将删除 input/ 下所有文件，此操作不可撤销。').classes('text-body2')
+                    with ui.row().classes('q-mt-md gap-sm justify-end w-full'):
+                        ui.button('取消', on_click=dlg.close).props('flat')
+                        def confirm():
+                            dlg.close()
+                            input_dir = get_feature_dir(FEATURE) / 'input'
+                            count = 0
+                            if input_dir.exists():
+                                for f in input_dir.iterdir():
+                                    if f.is_file():
+                                        f.unlink()
+                                        count += 1
+                            ui.notify(f'已删除 {count} 个文件' if count > 0 else 'input 目录中没有文件',
+                                      type='positive' if count > 0 else 'info')
+                        ui.button('确认删除', on_click=confirm).props('color=negative')
+                dlg.open()
+
+            with ui.row().classes('q-mt-sm gap-sm items-center'):
+                dwa_btn = ui.button('生成 DWA 分析', icon='play_arrow')
+                ui.button('清理input', icon='delete_sweep', on_click=_confirm_clear).props('flat color=negative')
             dwa_log = ui.log(max_lines=100).classes('w-full h-40 q-mt-sm font-mono text-xs')
 
             async def on_dwa():

@@ -38,10 +38,29 @@ def create() -> None:
 
         messages: list[str] = []
 
+        def _confirm_clear():
+            with ui.dialog() as dlg, ui.card():
+                ui.label('确认清理').classes('text-subtitle1 text-bold')
+                ui.label('将删除 orders/ 下所有文件，此操作不可撤销。').classes('text-body2')
+                with ui.row().classes('q-mt-md gap-sm justify-end w-full'):
+                    ui.button('取消', on_click=dlg.close).props('flat')
+                    def confirm():
+                        dlg.close()
+                        count = 0
+                        for f in orders_dir.iterdir():
+                            if f.is_file():
+                                f.unlink()
+                                count += 1
+                        ui.notify(f'已删除 {count} 个文件' if count > 0 else 'orders 目录中没有文件',
+                                  type='positive' if count > 0 else 'info')
+                    ui.button('确认删除', on_click=confirm).props('color=negative')
+            dlg.open()
+
         with ui.row().classes('q-mt-md gap-sm items-center'):
             run_btn = ui.button('运行', icon='play_arrow')
             copy_btn = ui.button('复制输出', icon='content_copy').props('flat')
             copy_btn.disable()
+            ui.button('清理orders', icon='delete_sweep', on_click=_confirm_clear).props('flat color=negative')
 
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
 

@@ -70,8 +70,31 @@ def create() -> None:
             mode.on('update:model-value', lambda _: update_visibility())
             update_visibility()
 
+        def _confirm_clear():
+            with ui.dialog() as dlg, ui.card():
+                ui.label('确认清理').classes('text-subtitle1 text-bold')
+                ui.label('将删除 TEMU/ 和 YY/ 下所有文件，此操作不可撤销。').classes('text-body2')
+                with ui.row().classes('q-mt-md gap-sm justify-end w-full'):
+                    ui.button('取消', on_click=dlg.close).props('flat')
+                    def confirm():
+                        dlg.close()
+                        count = 0
+                        for subdir in ('TEMU', 'YY'):
+                            d = get_feature_dir(FEATURE) / subdir
+                            if d.exists():
+                                for f in d.iterdir():
+                                    if f.is_file():
+                                        f.unlink()
+                                        count += 1
+                        ui.notify(f'已删除 {count} 个文件' if count > 0 else 'input 目录中没有文件',
+                                  type='positive' if count > 0 else 'info')
+                    ui.button('确认删除', on_click=confirm).props('color=negative')
+            dlg.open()
+
         # 运行区域
-        run_btn = ui.button('运行', icon='play_arrow').classes('q-mt-md')
+        with ui.row().classes('q-mt-md gap-sm items-center'):
+            run_btn = ui.button('运行', icon='play_arrow')
+            ui.button('清理input', icon='delete_sweep', on_click=_confirm_clear).props('flat color=negative')
         log_area = ui.log(max_lines=200).classes('w-full h-64 q-mt-sm font-mono text-xs')
         output_label = ui.label('').classes('text-caption text-positive q-mt-xs')
 

@@ -25,6 +25,7 @@ NAME_MAPPING: dict[str, str] = {
     '刘增榕': 'ZENGRONG LIU',
     '陈磊': 'LEI CHEN',
     '吴波': 'BO WU',
+    '吴军': 'JUN WU'
 }
 
 

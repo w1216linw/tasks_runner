@@ -42,7 +42,27 @@ def create() -> None:
                     label='选择输入文件',
                 ).classes('w-full q-mt-sm')
 
-        run_btn = ui.button('运行', icon='play_arrow').classes('q-mt-md')
+        def _confirm_clear():
+            with ui.dialog() as dlg, ui.card():
+                ui.label('确认清理').classes('text-subtitle1 text-bold')
+                ui.label('将删除 input/ 下所有文件，此操作不可撤销。').classes('text-body2')
+                with ui.row().classes('q-mt-md gap-sm justify-end w-full'):
+                    ui.button('取消', on_click=dlg.close).props('flat')
+                    def confirm():
+                        dlg.close()
+                        count = 0
+                        for f in input_dir.iterdir():
+                            if f.is_file():
+                                f.unlink()
+                                count += 1
+                        ui.notify(f'已删除 {count} 个文件' if count > 0 else 'input 目录中没有文件',
+                                  type='positive' if count > 0 else 'info')
+                    ui.button('确认删除', on_click=confirm).props('color=negative')
+            dlg.open()
+
+        with ui.row().classes('q-mt-md gap-sm items-center'):
+            run_btn = ui.button('运行', icon='play_arrow')
+            ui.button('清理input', icon='delete_sweep', on_click=_confirm_clear).props('flat color=negative')
         log_area = ui.log(max_lines=200).classes('w-full h-48 q-mt-sm font-mono text-xs')
 
         async def on_run():
